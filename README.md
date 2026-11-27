@@ -82,6 +82,8 @@ coordinates. The include does not spawn or teleport players. A complete Grove
 Street script with `/ipl`, `/unloadipl` and vehicle commands is provided in
 [`examples/main.lua`](examples/main.lua).
 
+![Grove Street example loaded with IPL Loader](docs/images/grove-example.png)
+
 ## Load options
 
 ```lua
