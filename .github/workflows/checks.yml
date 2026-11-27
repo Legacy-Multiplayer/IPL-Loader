@@ -1,0 +1,25 @@
+name: Lua checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Check syntax
+        run: |
+          luac5.4 -p ipl.lua
+          luac5.4 -p examples/main.lua
+          luac5.4 -p tests/check-ipl.lua
+      - name: Run checks
+        run: lua5.4 tests/check-ipl.lua

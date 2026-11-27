@@ -1,0 +1,9 @@
+# Native GTA objects on the pavement beside Grove Street's cul-de-sac.
+# id, name, instance flags/interior, x, y, z, qx, qy, qz, qw, lod index
+inst
+1238, trafficcone, 0, 2493.0, -1678.0, 13.15, 0, 0, 0, 1, -1
+1238, trafficcone, 0, 2495.0, -1678.0, 13.15, 0, 0, 0, 1, -1
+1238, trafficcone, 0, 2497.0, -1678.0, 13.15, 0, 0, 0, 1, -1
+1422, barrier, 0, 2494.0, -1681.0, 13.20, 0, 0, 0, 1, -1
+1422, barrier, 0, 2498.0, -1681.0, 13.20, 0, 0, -0.7071067812, 0.7071067812, -1
+end
