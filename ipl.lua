@@ -1,4 +1,4 @@
--- Pure Lua reader for San Andreas text IPL inst placements. No IDE dependency.
+-- San Andreas text IPL objects, optional vehicles/pickups and IDE registration.
 local IPL = {}
 local Map = {}
 Map.__index = Map
@@ -36,16 +36,35 @@ function IPL.rotation(qx, qy, qz, qw)
     return math.deg(rx), math.deg(ry), math.deg(rz)
 end
 
+-- Addon-Sscanf does the typed conversion. Keep exact record boundaries here:
+-- scanf deliberately allows extra input because it is also a command parser.
+local function scanRecord(line, format, count, commaRequired)
+    local comma = line:find(",", 1, true) ~= nil
+    if commaRequired or comma then
+        local _, separators = line:gsub(",", "")
+        if separators + 1 ~= count then return nil, "expected " .. count .. " comma-separated fields" end
+    end
+    if #line > 4096 then return nil, "record exceeds Addon-Sscanf's 4096-byte limit" end
+    local values, problem = sscanfTable(line, (comma and "p<,>" or "") .. format .. " W")
+    if not values then return nil, problem end
+    if values[count + 1] ~= nil then return nil, "unexpected extra field" end
+    return values
+end
+
 -- Parse separately from spawning, so malformed input never leaves half a map.
 function IPL.parse(text, source)
     source = source or "<IPL>"
+    if type(sscanfTable) ~= "function" then
+        return nil, source .. ": Addon-Sscanf is required; install its DLL/SO in addons/"
+    end
     if type(text) ~= "string" then return nil, "IPL content must be a string" end
     if #text > 8*1024*1024 then return nil, source .. ": exceeds 8 MiB text limit" end
     if text:sub(1,4) == "bnry" or text:find("\0", 1, true) then
         return nil, source .. ": binary IPL is not supported; export a text IPL"
     end
     text = text:gsub("^\239\187\191", "")
-    local entries, section, lineNumber = {}, nil, 0
+    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+    local entries, objects, section, lineNumber = {}, {}, nil, 0
     local function failure(message)
         return nil, string.format("%s:%d: %s", source, lineNumber, message)
     end
@@ -62,34 +81,52 @@ function IPL.parse(text, source)
             elseif keyword == "end" then
                 section = nil
             elseif section == "inst" then
-                local fields = {}
-                for field in (line .. ","):gmatch("(.-),") do fields[#fields+1] = trim(field) end
-                if #fields ~= 11 then return failure("SA inst requires 11 comma-separated fields") end
-                local model, flags, lod = tonumber(fields[1]), tonumber(fields[3]), tonumber(fields[11])
+                local fields, problem = scanRecord(line, "d w d f f f f f f f d", 11, true)
+                if not fields then return failure("invalid inst record: " .. tostring(problem)) end
+                local model, flags, lod = fields[1], fields[3], fields[11]
                 if not integer(model) or model < 1 or model > 2147483647 then return failure("invalid model ID") end
                 if fields[2] == "" then return failure("missing model name") end
                 if not integer(flags) or flags < 0 or flags > 4294967295 then return failure("invalid instance flags") end
                 if not integer(lod) or lod < -1 then return failure("invalid zero-based LOD index") end
-                local values = {}
-                for index=4,10 do
-                    values[index] = tonumber(fields[index])
-                    if not finite(values[index]) then return failure("invalid number in field " .. index) end
-                end
+                local values = fields
                 local ok, rx, ry, rz = pcall(IPL.rotation, values[7], values[8], values[9], values[10])
                 if not ok then return failure("invalid quaternion") end
                 entries[#entries+1] = {
-                    model=model, name=fields[2], interior=flags % 256, flags=flags,
+                    kind="object", model=model, name=fields[2], interior=flags % 256, flags=flags,
                     x=values[4], y=values[5], z=values[6], rx=rx, ry=ry, rz=rz,
-                    lod=lod, line=lineNumber, index=#entries,
+                    lod=lod, line=lineNumber, index=#objects,
                 }
-                if #entries > 20000 then return failure("exceeds 20000 placement limit") end
-            end -- Non-inst sections are intentionally ignored.
+                objects[#objects + 1] = entries[#entries]
+            elseif section == "cars" or section == "pick" then
+                local count = section == "cars" and 12 or 4
+                local format = section == "cars" and "f f f f d d d d d d d d" or "d f f f"
+                local values, problem = scanRecord(line, format, count, false)
+                if not values then return failure("invalid " .. section .. " record: " .. tostring(problem)) end
+                if section == "cars" then
+                    if values[5] ~= -1 and (values[5] < 1 or values[5] > 2147483647) then return failure("invalid vehicle model") end
+                    if values[6] < -1 or values[6] > 255 or values[7] < -1 or values[7] > 255 then return failure("invalid vehicle colours") end
+                    if values[8] < 0 or values[8] > 255 or values[9] < 0 or values[9] > 100 or values[10] < 0 or values[10] > 100 then
+                        return failure("invalid generator flags or chance")
+                    end
+                    if values[11] < 0 or values[12] < values[11] then return failure("invalid generator delay range") end
+                    entries[#entries + 1] = {
+                        kind="vehicle", x=values[1], y=values[2], z=values[3], heading=math.deg(values[4]),
+                        model=values[5], color1=values[6], color2=values[7], flags=values[8],
+                        alarmChance=values[9], lockChance=values[10], minDelay=values[11], maxDelay=values[12],
+                        interior=0, line=lineNumber,
+                    }
+                else
+                    if not integer(values[1]) or values[1] < 0 or values[1] > 2147483647 then return failure("invalid pickup code") end
+                    entries[#entries + 1] = {kind="pickup", code=values[1], x=values[2], y=values[3], z=values[4], interior=0, line=lineNumber}
+                end
+            end
+            if #entries > 20000 then return failure("exceeds 20000 placement limit") end
         end
     end
     if section then return failure("missing end for section " .. section) end
-    if #entries == 0 then return failure("no inst placements found") end
-    for _, entry in ipairs(entries) do
-        if entry.lod >= #entries or entry.lod == entry.index then
+    if #entries == 0 then return failure("no supported placements found") end
+    for _, entry in ipairs(objects) do
+        if entry.lod >= #objects or entry.lod == entry.index then
             lineNumber = entry.line
             return failure("LOD index is outside the placement list or refers to itself")
         end
@@ -106,8 +143,10 @@ end
 
 function Map:destroy()
     if self.timer then removeTimer(self.timer); self.timer=nil end
-    for index=#self.objects,1,-1 do removeWorldObject(self.objects[index]) end
-    self.objects = {}
+    for _, group in ipairs({{self.pickups, removePickup}, {self.vehicles, removeVehicle}, {self.objects, removeWorldObject}}) do
+        for index = #group[1], 1, -1 do group[2](group[1][index]) end
+    end
+    self.objects, self.vehicles, self.pickups = {}, {}, {}
     self.state = "idle"
     self.next = 1
 end
@@ -131,14 +170,31 @@ function Map:spawn(onComplete)
                 callback(self, true)
                 return
             end
-            local ok, id = pcall(createWorldObject, entry.model,
-                entry.x+self.offset.x, entry.y+self.offset.y, entry.z+self.offset.z,
-                entry.rx, entry.ry, entry.rz, self.drawDistance, self.dimension)
-            if not ok or not integer(id) or id < 0 or id >= 65535 then
-                fail(string.format("%s:%d: could not create model %d (%s)", self.path, entry.line, entry.model, tostring(id)))
+            local x, y, z = entry.x+self.offset.x, entry.y+self.offset.y, entry.z+self.offset.z
+            local ok, id
+            local kind = entry.kind or "object"
+            if kind == "vehicle" then
+                ok, id = pcall(spawnVehicle, entry.model, x, y, z, entry.heading,
+                    entry.color1, entry.color2, self.vehicleRespawnDelay, false)
+            elseif kind == "pickup" then
+                ok, id = pcall(spawnPickup, entry.model, entry.pickupType, x, y, z, self.dimension)
+            else
+                ok, id = pcall(createWorldObject, entry.model, x, y, z,
+                    entry.rx, entry.ry, entry.rz, entry.drawDistance or self.drawDistance, self.dimension)
+            end
+            if not ok or not integer(id) or id < 0 or id >= 65535 or (kind == "vehicle" and id == 0) then
+                fail(string.format("%s:%d: could not create %s model %d (%s)", self.path, entry.line, kind, entry.model, tostring(id)))
                 return
             end
-            self.objects[#self.objects+1] = id -- Object ID zero is valid in Legacy.
+            local target = kind == "vehicle" and self.vehicles or kind == "pickup" and self.pickups or self.objects
+            target[#target+1] = id
+            if kind == "vehicle" then
+                local configured, result = pcall(setVehicleDimension, id, self.dimension)
+                if not configured or result == false then
+                    fail("Could not set the IPL vehicle dimension")
+                    return
+                end
+            end
             self.next = self.next+1
         end
     end
@@ -157,6 +213,12 @@ function IPL.load(path, options)
     if type(options) ~= "table" then return nil, "options must be a table" end
     if options.offset ~= nil and type(options.offset) ~= "table" then return nil, "offset must be a table" end
     if options.models ~= nil and type(options.models) ~= "table" then return nil, "models must be an ID/name mapping table" end
+    if options.ide ~= nil and (type(options.ide) ~= "table" or type(options.ide.models) ~= "table" or type(options.ide.drawDistances) ~= "table") then return nil, "ide must be a registered IDE catalogue" end
+    if options.vehicles ~= nil and type(options.vehicles) ~= "boolean" then return nil, "vehicles must be boolean" end
+    if options.vehicleModels ~= nil and type(options.vehicleModels) ~= "table" then return nil, "vehicleModels must be a mapping table" end
+    if options.pickups ~= nil and type(options.pickups) ~= "table" then return nil, "pickups must map IPL codes to model/type tables" end
+    local respawnDelay = options.vehicleRespawnDelay or 60
+    if not integer(respawnDelay) or respawnDelay < -1 or respawnDelay > 2147483647 then return nil, "invalid vehicleRespawnDelay" end
     local offset = options.offset or {}
     local ox, oy, oz = offset.x or 0, offset.y or 0, offset.z or 0
     local dimension, interior = options.dimension or 0, options.interior
@@ -174,23 +236,57 @@ function IPL.load(path, options)
     local entries, parseError = IPL.parse(text, path)
     if not entries then return nil, parseError end
     local lods = {}
-    for _, entry in ipairs(entries) do if entry.lod >= 0 then lods[entry.lod]=true end end
+    for _, entry in ipairs(entries) do
+        if entry.kind == "object" and entry.lod >= 0 then lods[entry.lod] = true end
+    end
     local selected, filtered = {}, 0
     for _, entry in ipairs(entries) do
-        if (interior == nil or entry.interior == interior) and (options.skipLOD == false or not lods[entry.index]) then
+        local enabled = entry.kind == "object" or entry.kind == "vehicle" and options.vehicles == true
+            or entry.kind == "pickup" and options.pickups ~= nil
+        local matches = interior == nil or entry.interior == interior
+        if enabled and matches and (entry.kind ~= "object" or options.skipLOD == false or not lods[entry.index]) then
             local mapped = entry.model
-            if options.models then mapped = options.models[entry.model] or options.models[entry.name] end
+            if entry.kind == "object" then
+                if options.ide then
+                    mapped = options.ide.models[entry.model] or options.ide.models[entry.name] or entry.model
+                    entry.drawDistance = not options.drawDistance and options.ide.drawDistances[entry.model] or nil
+                end
+                if options.models then mapped = options.models[entry.model] or options.models[entry.name] end
+            elseif entry.kind == "vehicle" then
+                mapped = options.vehicleModels and options.vehicleModels[entry.model] or entry.model
+                if entry.flags ~= 0 or entry.alarmChance ~= 0 or entry.lockChance ~= 0 then
+                    return nil, string.format("%s:%d: generator flags/alarm/lock behavior is unsupported; set these fields to zero", path, entry.line)
+                end
+            else
+                local definition = options.pickups[entry.code]
+                if type(definition) ~= "table" or not integer(definition.type) or definition.type < 0 or definition.type > 255 then
+                    return nil, string.format("%s:%d: provide a pickup model/type mapping for IPL code %d", path, entry.line, entry.code)
+                end
+                mapped, entry.pickupType = definition.model, definition.type
+            end
             if not integer(mapped) or mapped < 1 or mapped > 2147483647 then
-                return nil, string.format("%s:%d: no valid model mapping for %d (%s)", path, entry.line, entry.model, entry.name)
+                return nil, string.format("%s:%d: no valid model mapping for %s", path, entry.line, tostring(entry.model or entry.code))
             end
             entry.model = mapped
             selected[#selected+1] = entry
-        else filtered=filtered+1 end
+        else
+            filtered = filtered + 1
+        end
+    end
+    if options.vehicles and (type(spawnVehicle) ~= "function" or type(removeVehicle) ~= "function" or type(setVehicleDimension) ~= "function") then
+        return nil, "Vehicle addon functions are required when vehicles are enabled"
+    end
+    if options.pickups and (type(spawnPickup) ~= "function" or type(removePickup) ~= "function") then
+        return nil, "Pickup addon functions are required when pickups are enabled"
     end
     if #selected == 0 then return nil, "no placements match the interior/LOD filters" end
     return setmetatable({path=path, entries=selected, total=#entries, filtered=filtered,
-        objects={}, state="idle", next=1, offset={x=ox,y=oy,z=oz}, dimension=dimension,
+        objects={}, vehicles={}, pickups={}, vehicleRespawnDelay=respawnDelay, state="idle", next=1, offset={x=ox,y=oy,z=oz}, dimension=dimension,
         drawDistance=distance, batchSize=batchSize}, Map)
+end
+
+function IPL.registerIDE(path, options)
+    return require("ide").register(path, options)
 end
 
 return IPL

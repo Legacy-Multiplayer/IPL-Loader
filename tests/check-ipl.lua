@@ -1,4 +1,4 @@
--- Run from the repository root with Lua 5.3+: lua tests/check-ipl.lua
+-- Run in Legacy Server with Addon-Sscanf via .github/scripts/run-checks.py.
 package.path = "./?.lua;" .. package.path
 local IPL = require("ipl")
 local passed = 0
