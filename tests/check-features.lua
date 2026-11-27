@@ -1,6 +1,6 @@
 package.path = "./?.lua;" .. package.path
-local IPL = require("ipl")
-local IDE = require("ide")
+local IPL = require("IPL")
+local IDE = require("IDE")
 local count = 0
 local function check(name, run)
     run()

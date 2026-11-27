@@ -286,7 +286,7 @@ function IPL.load(path, options)
 end
 
 function IPL.registerIDE(path, options)
-    return require("ide").register(path, options)
+    return require("IDE").register(path, options)
 end
 
 return IPL

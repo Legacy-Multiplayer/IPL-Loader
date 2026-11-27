@@ -24,8 +24,8 @@ jobs:
           sudo apt-get "${apt_options[@]}" install -y lua5.4 libc6:i386 libstdc++6:i386
       - name: Check syntax
         run: |
-          luac5.4 -p ipl.lua
-          luac5.4 -p ide.lua
+          luac5.4 -p IPL.lua
+          luac5.4 -p IDE.lua
           luac5.4 -p examples/main.lua
           luac5.4 -p examples/capsule/main.lua
           luac5.4 -p examples/capsule/map.lua

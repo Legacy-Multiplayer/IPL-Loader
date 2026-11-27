@@ -4,6 +4,10 @@ Use existing IPL placements in your Legacy Multiplayer scripts without
 rewriting each object by hand. The loader reads the file and manages the
 objects as one map, from creation through cleanup.
 
+The includes are **`IPL.lua`** and **`IDE.lua`**. Use `require("IPL")` and,
+when importing the IDE module directly, `require("IDE")`. Update lowercase
+imports when upgrading so they also work on Linux.
+
 ## Features
 
 - Reads object placements from text IPL `inst` sections.
@@ -31,13 +35,13 @@ Clone the repository:
 git clone https://github.com/Legacy-Multiplayer/IPL-Loader.git
 ```
 
-Copy `ipl.lua` into your server's `includes` directory, and put your IPL files
+Copy `IPL.lua` into your server's `includes` directory, and put your IPL files
 somewhere your script can read, such as `resources/maps`:
 
 ```text
 server/
 ├── includes/
-│   └── ipl.lua
+│   └── IPL.lua
 ├── main/
 │   └── main.lua
 └── resources/
@@ -50,7 +54,7 @@ and `removeTimer`. Use Legacy's essential **Object** addon for the object
 functions; timers are provided by the server. The include uses Lua 5.3+ and
 Lua's standard file access. No additional Lua dependencies are needed.
 
-Copy `ide.lua` into `includes/` too if you use IDE registration. Enable the
+Copy `IDE.lua` into `includes/` too if you use IDE registration. Enable the
 Model and Constants addons for that feature, Vehicle for `cars`, and Pickup
 for `pick`. Vehicles and pickups are disabled unless explicitly requested.
 
@@ -60,7 +64,7 @@ Copy `examples/maps/grove-demo.ipl` into `resources/maps`, then add this to
 your main script:
 
 ```lua
-local IPL = require("ipl")
+local IPL = require("IPL")
 local map
 
 addEventHandler("onMainScriptInit", function()
@@ -159,7 +163,7 @@ Place each object's `name.dff` and single-model `name.col`, plus its texture
 dictionary's `txdName.txd`, under a directory inside `assets/`.
 
 ```lua
-local IPL = require("ipl")
+local IPL = require("IPL")
 local map
 
 addEventHandler("onMainScriptInit", function()
