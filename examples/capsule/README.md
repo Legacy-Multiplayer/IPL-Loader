@@ -17,7 +17,7 @@ Copy these files:
 
 | Example file | Server destination |
 | --- | --- |
-| Repository `IPL.lua` and `IDE.lua` | `includes/` |
+| Repository `includes/IPL.lua` and `includes/IDE.lua` | `includes/` |
 | `main.lua` | `main/main.lua` |
 | `map.lua` | `includes/capsule.lua` |
 | `capsule.ide` and `capsule.ipl` | `resources/maps/capsule/` |

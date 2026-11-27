@@ -1,11 +1,4 @@
-The includes are now named **IPL.lua** and **IDE.lua**.
+The utility files now live in `includes/` in the repository and release ZIP.
 
-```lua
-local IPL = require("IPL")
-```
-
-Update existing lowercase imports when upgrading. `IPL.registerIDE` loads
-`IDE.lua` automatically. Direct IDE imports use `require("IDE")`.
-Examples, documentation and checks use the exact filename case on Linux.
-
-Loading behavior is unchanged. Addon-Sscanf remains required.
+Copy that folder into your server. The capitalized `require` names stay unchanged.
+Examples, documentation, packaging and Linux checks use the new layout.

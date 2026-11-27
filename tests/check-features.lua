@@ -1,4 +1,4 @@
-package.path = "./?.lua;" .. package.path
+package.path = "./includes/?.lua;./?.lua;" .. package.path
 local IPL = require("IPL")
 local IDE = require("IDE")
 local count = 0

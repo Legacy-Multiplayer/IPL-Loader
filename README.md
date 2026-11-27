@@ -35,18 +35,18 @@ Clone the repository:
 git clone https://github.com/Legacy-Multiplayer/IPL-Loader.git
 ```
 
-Copy `IPL.lua` into your server's `includes` directory, and put your IPL files
+Copy `includes/IPL.lua` into your server's `includes` directory, and put your IPL files
 somewhere your script can read, such as `resources/maps`:
 
 ```text
 server/
-├── includes/
-│   └── IPL.lua
-├── main/
-│   └── main.lua
-└── resources/
-    └── maps/
-        └── grove-demo.ipl
+â”œâ”€â”€ includes/
+â”‚   â””â”€â”€ IPL.lua
+â”œâ”€â”€ main/
+â”‚   â””â”€â”€ main.lua
+â””â”€â”€ resources/
+    â””â”€â”€ maps/
+        â””â”€â”€ grove-demo.ipl
 ```
 
 The server must expose `sscanfTable`, `createWorldObject`, `removeWorldObject`, `createTimer`
@@ -54,7 +54,7 @@ and `removeTimer`. Use Legacy's essential **Object** addon for the object
 functions; timers are provided by the server. The include uses Lua 5.3+ and
 Lua's standard file access. No additional Lua dependencies are needed.
 
-Copy `IDE.lua` into `includes/` too if you use IDE registration. Enable the
+Copy `includes/IDE.lua` into `includes/` too if you use IDE registration. Enable the
 Model and Constants addons for that feature, Vehicle for `cars`, and Pickup
 for `pick`. Vehicles and pickups are disabled unless explicitly requested.
 
@@ -191,7 +191,7 @@ kept unchanged. An explicit `models` option retains its existing strict mapping
 behavior and takes precedence.
 
 Supported IDE entries are static `objs` definitions with zero native flags,
-including the optional 1–3 mesh-distance form. Nonempty `tobj` sections are
+including the optional 1â€“3 mesh-distance form. Nonempty `tobj` sections are
 rejected; other IDE sections are ignored. File names must match the IDE names
 on case-sensitive systems. COL collections must be split into one model per
 file beforehand. This helper does not convert DFF/TXD/COL data.

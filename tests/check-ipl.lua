@@ -1,5 +1,5 @@
 -- Run in Legacy Server with Addon-Sscanf via .github/scripts/run-checks.py.
-package.path = "./?.lua;" .. package.path
+package.path = "./includes/?.lua;./?.lua;" .. package.path
 local IPL = require("IPL")
 local passed = 0
 local function check(name, fn)

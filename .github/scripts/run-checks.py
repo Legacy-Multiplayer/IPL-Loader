@@ -52,8 +52,7 @@ def main():
         root = Path(temporary)
         (root / "addons").mkdir()
         (root / "main").mkdir()
-        shutil.copy2(source / "IPL.lua", root / "IPL.lua")
-        shutil.copy2(source / "IDE.lua", root / "IDE.lua")
+        shutil.copytree(source / "includes", root / "includes")
         shutil.copytree(source / "tests", root / "tests")
         if args.server:
             (root / executable).write_bytes(args.server.read_bytes())
